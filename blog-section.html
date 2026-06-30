@@ -1,0 +1,92 @@
+<!-- ── BLOG SECTION — paste this to replace your existing #blog section ── -->
+<!-- Also add <script src="/blogs.js"></script> just before </body> -->
+
+<section id="blog" class="section">
+  <div class="container">
+    <div class="blog-controls">
+      <div>
+        <div class="sec-label">Latest Guides</div>
+        <div class="sec-title">From the <em>Dream2Europe</em> Blog</div>
+      </div>
+      <div class="blog-filters" id="blogFilters">
+        <button class="filter-btn active" onclick="filterBlog('all',this)">All</button>
+        <button class="filter-btn" onclick="filterBlog('APS & Admissions',this)">APS & Admissions</button>
+        <button class="filter-btn" onclick="filterBlog('Ausbildung',this)">Ausbildung</button>
+        <button class="filter-btn" onclick="filterBlog('Visa',this)">Visa</button>
+        <button class="filter-btn" onclick="filterBlog('Study',this)">Study</button>
+        <button class="filter-btn" onclick="filterBlog('Jobs',this)">Jobs</button>
+      </div>
+    </div>
+
+    <div class="blog-grid" id="blogGrid">
+      <!-- Cards injected by renderBlog() -->
+      <div class="blog-loading">
+        <div class="spinner"></div>
+        Loading articles...
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+// ── Blog renderer — reads from blogs.js ──────────────────────────────────────
+function renderBlog(filter) {
+  const grid = document.getElementById('blogGrid');
+  if (!grid) return;
+
+  const posts = (typeof BLOG_POSTS !== 'undefined' ? BLOG_POSTS : []);
+  const filtered = filter && filter !== 'all'
+    ? posts.filter(p => p.cat === filter)
+    : posts;
+
+  if (filtered.length === 0) {
+    grid.innerHTML = '<div class="blog-loading">No articles found.</div>';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(post => `
+    <div class="blog-card reveal" data-cat="${post.cat}">
+      <div class="blog-card-img" style="background:${post.bgColor || 'linear-gradient(135deg,#5a90e0,#7ab8f5)'};">
+        <span>${post.emoji || '📄'}</span>
+        <div class="blog-cat">${post.catNew ? 'NEW · ' : ''}${post.cat}</div>
+      </div>
+      <div class="blog-body">
+        <div class="blog-date">${post.date}</div>
+        <div class="blog-title">${post.title}</div>
+        <div class="blog-excerpt">${post.excerpt}</div>
+        ${post.link
+          ? `<a href="${post.link}" class="blog-link">Read full guide →</a>`
+          : post.fullArticle
+            ? `<button class="blog-expand-btn" onclick="toggleArticle(this)">Read more ↓</button>
+               <div class="blog-full-body" style="display:none">
+                 <div class="blog-article-content">${post.fullArticle}</div>
+               </div>`
+            : ''
+        }
+      </div>
+    </div>
+  `).join('');
+
+  // Trigger reveal animations
+  setTimeout(() => {
+    grid.querySelectorAll('.reveal').forEach(el => el.classList.add('visible'));
+  }, 100);
+}
+
+function filterBlog(cat, btn) {
+  // Update active button
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  renderBlog(cat);
+}
+
+function toggleArticle(btn) {
+  const body = btn.nextElementSibling;
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  btn.textContent = open ? 'Read more ↓' : 'Show less ↑';
+}
+
+// Render on load
+document.addEventListener('DOMContentLoaded', () => renderBlog('all'));
+</script>
