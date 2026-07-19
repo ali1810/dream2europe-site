@@ -542,7 +542,7 @@ footer{background:linear-gradient(135deg,#5a80c0,#7aa0d8);padding:4rem 4rem 2rem
       </div>
     </div>
     <div class="footer-bottom">
-      <div>© 2025 Dream2Europe · All rights reserved · Dr. Mushtaq Ali · Last updated: June 2025</div>
+      <div>© <span id="footerYear">2025</span> Dream2Europe · All rights reserved · Dr. Mushtaq Ali · Last updated: <span id="footerUpdated">June 2025</span></div>
       <div class="footer-seo">
         <a href="#">Work in Germany</a>
         <a href="#">Ausbildung Guide</a>
@@ -614,6 +614,24 @@ async function loadPosts(){
     // offline or opened as a local file — fallbackPosts stays in use
   }
   renderBlog();
+  updateFooterDates();
+}
+
+function updateFooterDates(){
+  const yearEl = document.getElementById('footerYear');
+  if(yearEl) yearEl.textContent = new Date().getFullYear();
+
+  const updatedEl = document.getElementById('footerUpdated');
+  if(updatedEl){
+    // Use the newest post's date if available, otherwise today's month/year
+    if(posts.length && posts[0].date){
+      updatedEl.textContent = posts[0].date;
+    } else {
+      const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+      const now = new Date();
+      updatedEl.textContent = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+    }
+  }
 }
 
 function renderBlog(){
@@ -1062,6 +1080,7 @@ async function addManualPost(){
   blogFilter = 'all';
   document.querySelectorAll('.filter-btn').forEach((b,i) => b.classList.toggle('active', i===0));
   renderBlog();
+  updateFooterDates();
 
   document.getElementById('manualPublishBtn').style.display = 'none';
   document.getElementById('manualProgress').style.display = 'block';
@@ -1143,6 +1162,7 @@ async function runGenerate(){
     blogFilter = 'all';
     document.querySelectorAll('.filter-btn').forEach((b,i) => b.classList.toggle('active', i===0));
     renderBlog();
+    updateFooterDates();
     const published = await publishPosts();
     success.textContent = published
       ? '✅ Post published live! Visible to everyone now.'
@@ -1159,6 +1179,7 @@ async function runGenerate(){
       excerpt: `A comprehensive guide for South Asian professionals on ${selectedTopic.label.toLowerCase()}. Covering requirements, timelines, and step-by-step process.`
     });
     renderBlog();
+    updateFooterDates();
     const published = await publishPosts();
     success.textContent = published
       ? '✅ Post published live! Visible to everyone now.'
@@ -1192,6 +1213,7 @@ async function deletePost(id){
   if(!confirm('Delete this post?')) return;
   posts = posts.filter(p => p.id !== id);
   renderBlog();
+  updateFooterDates();
   renderPostList();
   document.getElementById('postCountLabel').textContent = posts.length + ' posts published';
   const published = await publishPosts();
