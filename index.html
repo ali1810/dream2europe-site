@@ -556,7 +556,8 @@ footer{background:linear-gradient(135deg,#5a80c0,#7aa0d8);padding:4rem 4rem 2rem
 
 <script>
 // Blog data
-const defaultPosts=[
+// fallbackPosts is only used if posts.json can't be fetched (e.g. opening the file locally without a server)
+const fallbackPosts=[
   {id:0,cat:'aps',emoji:'📋',
    title:'dMAT — Germany\'s New Exam for Indian Master\'s Applicants (2026)',
    date:'June 2026',
@@ -600,7 +601,20 @@ const defaultPosts=[
    body:"Getting your foreign degree recognised in Germany is one of the most important and most confusing steps in the immigration process. Here is a clear, complete checklist.\n\n**Step 1 — Check the Anabin Database**\nGo to anabin.kmk.org and search for your university and degree. You will see one of three results: H+ (fully recognised — no further steps needed), H (recognised with conditions), H- (not recognised — you may need to take additional exams). Most degrees from accredited universities in India, Pakistan, Bangladesh, Nepal and other countries are listed.\n\n**Step 2 — Documents You Need**\nOriginal degree certificate, official academic transcripts, diploma supplement if available, proof of the institution's accreditation, translation into German by a sworn translator (beeidigter Übersetzer), apostille stamp from the issuing country's government. For apostille: in India apply through the Ministry of External Affairs. In Pakistan through MOFA. Apostille takes 2–8 weeks depending on country.\n\n**Step 3 — Submit for Recognition**\nFor academic degrees: apply through the German university or anabin.kmk.org. For vocational qualifications: apply through the relevant chamber (Kammer) for your profession. Processing time: 1–3 months. Cost: €100–600 depending on profession and state.\n\n---SOURCES---\nMake it in Germany: make-it-in-germany.com | Federal Office for Migration: bamf.de | German Foreign Office: auswaertiges-amt.de | Contact Dream2Europe free: info@dream2europe.com"},
 ];
 
-let blogFilter='all', posts=[...defaultPosts];
+let blogFilter='all', posts=[...fallbackPosts];
+
+async function loadPosts(){
+  try{
+    const r = await fetch('posts.json', {cache:'no-store'});
+    if(r.ok){
+      const data = await r.json();
+      if(Array.isArray(data) && data.length) posts = data;
+    }
+  }catch(e){
+    // offline or opened as a local file — fallbackPosts stays in use
+  }
+  renderBlog();
+}
 
 function renderBlog(){
   const grid=document.getElementById('blogGrid');
@@ -696,7 +710,7 @@ window.addEventListener('scroll',()=>document.getElementById('nav').classList.to
 const obs=new IntersectionObserver(entries=>entries.forEach((e,i)=>{if(e.isIntersecting)setTimeout(()=>e.target.classList.add('visible'),i*80);}),{threshold:0.08});
 document.querySelectorAll('.reveal').forEach(el=>obs.observe(el));
 
-renderBlog();
+loadPosts();
 </script>
 
 <!-- ══ ADMIN PANEL ══════════════════════════════════════════════ -->
@@ -788,10 +802,22 @@ renderBlog();
           <div><span>Generate AI Blog Post</span><span class="ab-label">Create SEO-optimised content with Claude AI</span></div>
         </button>
 
+        <!-- Manual entry -->
+        <button class="admin-action-btn" onclick="showSection('manual')">
+          <div class="ab-icon">✍️</div>
+          <div><span>Add Post Manually</span><span class="ab-label">Write and publish a post yourself</span></div>
+        </button>
+
         <!-- Manage posts -->
         <button class="admin-action-btn" onclick="showSection('manage')">
           <div class="ab-icon">📋</div>
           <div><span>Manage Blog Posts</span><span class="ab-label" id="postCountLabel">View and delete published posts</span></div>
+        </button>
+
+        <!-- Publishing settings -->
+        <button class="admin-action-btn" onclick="showSection('settings')">
+          <div class="ab-icon">⚙️</div>
+          <div><span>Publishing Settings</span><span class="ab-label" id="ghStatusLabel">Connect GitHub to make changes live</span></div>
         </button>
 
         <!-- WhatsApp -->
@@ -828,6 +854,44 @@ renderBlog();
       <div class="admin-dash-title">Manage Posts</div>
       <div class="admin-dash-sub">Delete posts you no longer want to show</div>
       <div class="post-list" id="postList"></div>
+    </div>
+
+    <!-- MANUAL ENTRY SECTION -->
+    <div id="manualPanel" style="display:none">
+      <button class="admin-action-btn" style="margin-bottom:1rem;border:none;background:none;padding:0;font-size:0.82rem;color:#2563b8;cursor:pointer;width:auto;" onclick="showSection('dash')">← Back</button>
+      <div class="admin-dash-title">Add Post Manually</div>
+      <div class="admin-dash-sub">Write your own post and publish it directly</div>
+
+      <div class="admin-input-wrap"><input type="text" class="admin-input" id="mTitle" placeholder="Post title"></div>
+
+      <select class="admin-input" id="mCat" style="margin-bottom:0.8rem;">
+        <option value="visa">Visa</option>
+        <option value="ausbildung">Ausbildung</option>
+        <option value="language">German Language</option>
+        <option value="jobs">Jobs</option>
+        <option value="life">Life in Germany</option>
+        <option value="aps">APS &amp; Admissions</option>
+      </select>
+
+      <div class="admin-input-wrap"><input type="text" class="admin-input" id="mEmoji" placeholder="Emoji (optional, e.g. 📋)"></div>
+
+      <textarea class="admin-input" id="mExcerpt" rows="2" placeholder="Short excerpt (1-2 sentences, shown on the card)" style="margin-bottom:0.8rem;resize:vertical;"></textarea>
+
+      <textarea class="admin-input" id="mBody" rows="8" placeholder="Full article. Use **Heading** for section headings and a blank line between paragraphs." style="margin-bottom:0.8rem;resize:vertical;"></textarea>
+
+      <button class="admin-btn" id="manualPublishBtn" onclick="addManualPost()">Publish Post</button>
+      <div class="gen-progress" id="manualProgress"><div class="spinner"></div><p>Publishing...</p></div>
+      <div class="gen-success" id="manualSuccess"></div>
+    </div>
+
+    <!-- SETTINGS SECTION -->
+    <div id="settingsPanel" style="display:none">
+      <button class="admin-action-btn" style="margin-bottom:1rem;border:none;background:none;padding:0;font-size:0.82rem;color:#2563b8;cursor:pointer;width:auto;" onclick="showSection('dash')">← Back</button>
+      <div class="admin-dash-title">Publishing Settings</div>
+      <div class="admin-dash-sub">Paste a GitHub token so new and deleted posts publish live to everyone. It's kept only in this browser tab for this session — never written to the site or shared. Use a fine-grained token scoped only to this repository with "Contents: Read and write" permission.</div>
+      <div class="admin-input-wrap"><input type="password" class="admin-input" id="ghTokenInput" placeholder="GitHub personal access token"></div>
+      <button class="admin-btn" onclick="saveGhToken()">Save for This Session</button>
+      <div class="gen-success" id="settingsSuccess"></div>
     </div>
 
   </div>
@@ -872,8 +936,13 @@ function showSection(section){
   document.getElementById('dashPanel').style.display     = section==='dash'     ? 'block' : 'none';
   document.getElementById('generatePanel').style.display = section==='generate' ? 'block' : 'none';
   document.getElementById('managePanel').style.display   = section==='manage'   ? 'block' : 'none';
+  document.getElementById('manualPanel').style.display   = section==='manual'   ? 'block' : 'none';
+  document.getElementById('settingsPanel').style.display = section==='settings' ? 'block' : 'none';
   if(section==='dash'){
     document.getElementById('postCountLabel').textContent = posts.length + ' posts published';
+    document.getElementById('ghStatusLabel').textContent = getGhToken()
+      ? 'Connected — changes publish live'
+      : 'Connect GitHub to make changes live';
   }
   if(section==='generate'){
     buildTopicGrid();
@@ -881,6 +950,15 @@ function showSection(section){
     document.getElementById('genProgress').style.display = 'none';
   }
   if(section==='manage') renderPostList();
+  if(section==='manual'){
+    document.getElementById('manualSuccess').classList.remove('show');
+    document.getElementById('manualProgress').style.display = 'none';
+    document.getElementById('manualPublishBtn').style.display = 'block';
+  }
+  if(section==='settings'){
+    document.getElementById('settingsSuccess').classList.remove('show');
+    document.getElementById('ghTokenInput').value = getGhToken();
+  }
 }
 
 function doLogin(){
@@ -900,6 +978,109 @@ function doLogin(){
 function doLogout(){
   adminLoggedIn = false;
   closeAdmin();
+}
+
+// ── PUBLISHING (writes posts.json back to GitHub so changes go live for everyone) ──
+const GH_OWNER = 'ali1810';
+const GH_REPO  = 'dream2europe-site';
+const GH_FILE  = 'posts.json';
+
+function getGhToken(){
+  return sessionStorage.getItem('d2e_gh_token') || '';
+}
+
+function saveGhToken(){
+  const val = document.getElementById('ghTokenInput').value.trim();
+  sessionStorage.setItem('d2e_gh_token', val);
+  const msg = document.getElementById('settingsSuccess');
+  msg.textContent = val ? '✅ Token saved for this session.' : 'Token cleared.';
+  msg.classList.add('show');
+}
+
+// Writes the current `posts` array to posts.json on GitHub via the Contents API.
+// Returns true on success, false if it couldn't publish (token missing/invalid, network error, etc).
+async function publishPosts(){
+  const token = getGhToken();
+  if(!token) return false;
+
+  try{
+    const apiUrl = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+    let sha;
+    const getResp = await fetch(apiUrl, {
+      headers:{ 'Authorization':'Bearer '+token, 'Accept':'application/vnd.github+json' }
+    });
+    if(getResp.ok){
+      const meta = await getResp.json();
+      sha = meta.sha;
+    }
+
+    const jsonStr = JSON.stringify(posts, null, 2);
+    const b64 = btoa(unescape(encodeURIComponent(jsonStr)));
+
+    const putResp = await fetch(apiUrl, {
+      method:'PUT',
+      headers:{
+        'Authorization':'Bearer '+token,
+        'Accept':'application/vnd.github+json',
+        'Content-Type':'application/json'
+      },
+      body: JSON.stringify({
+        message: 'Update blog posts via admin panel',
+        content: b64,
+        sha: sha
+      })
+    });
+
+    return putResp.ok;
+  }catch(e){
+    return false;
+  }
+}
+
+// ── MANUAL POST ENTRY ───────────────────────────────────────────
+async function addManualPost(){
+  const title   = document.getElementById('mTitle').value.trim();
+  const cat     = document.getElementById('mCat').value;
+  const emojiIn = document.getElementById('mEmoji').value.trim();
+  const excerpt = document.getElementById('mExcerpt').value.trim();
+  const body    = document.getElementById('mBody').value.trim();
+
+  if(!title || !excerpt || !body){
+    alert('Please fill in the title, excerpt, and body.');
+    return;
+  }
+
+  const defaultEmojis = {visa:'🛂', ausbildung:'🔧', language:'🗣️', jobs:'💼', life:'🏡', aps:'📋'};
+  const emoji = emojiIn || defaultEmojis[cat] || '📝';
+
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const now = new Date();
+  const dateLabel = monthNames[now.getMonth()] + ' ' + now.getFullYear();
+
+  posts.unshift({ id: Date.now(), cat, emoji, title, date: dateLabel, excerpt, body });
+
+  blogFilter = 'all';
+  document.querySelectorAll('.filter-btn').forEach((b,i) => b.classList.toggle('active', i===0));
+  renderBlog();
+
+  document.getElementById('manualPublishBtn').style.display = 'none';
+  document.getElementById('manualProgress').style.display = 'block';
+
+  const published = await publishPosts();
+
+  document.getElementById('manualProgress').style.display = 'none';
+  document.getElementById('manualPublishBtn').style.display = 'block';
+
+  const success = document.getElementById('manualSuccess');
+  success.textContent = published
+    ? '✅ Post published live! Visible to everyone now.'
+    : '⚠️ Post added, but not published live — add a GitHub token in Publishing Settings, then edit and republish.';
+  success.classList.add('show');
+
+  document.getElementById('mTitle').value = '';
+  document.getElementById('mEmoji').value = '';
+  document.getElementById('mExcerpt').value = '';
+  document.getElementById('mBody').value = '';
 }
 
 // ── TOPIC GRID ───────────────────────────────────────────────────
@@ -962,6 +1143,10 @@ async function runGenerate(){
     blogFilter = 'all';
     document.querySelectorAll('.filter-btn').forEach((b,i) => b.classList.toggle('active', i===0));
     renderBlog();
+    const published = await publishPosts();
+    success.textContent = published
+      ? '✅ Post published live! Visible to everyone now.'
+      : '⚠️ Post generated, but not published live — add a GitHub token in Publishing Settings.';
     success.classList.add('show');
 
   } catch(e) {
@@ -974,6 +1159,10 @@ async function runGenerate(){
       excerpt: `A comprehensive guide for South Asian professionals on ${selectedTopic.label.toLowerCase()}. Covering requirements, timelines, and step-by-step process.`
     });
     renderBlog();
+    const published = await publishPosts();
+    success.textContent = published
+      ? '✅ Post published live! Visible to everyone now.'
+      : '⚠️ Post generated, but not published live — add a GitHub token in Publishing Settings.';
     success.classList.add('show');
   } finally {
     progress.style.display = 'none';
@@ -999,12 +1188,16 @@ function renderPostList(){
   `).join('');
 }
 
-function deletePost(id){
+async function deletePost(id){
   if(!confirm('Delete this post?')) return;
   posts = posts.filter(p => p.id !== id);
   renderBlog();
   renderPostList();
   document.getElementById('postCountLabel').textContent = posts.length + ' posts published';
+  const published = await publishPosts();
+  if(!published){
+    alert('Post removed from this view, but not published live — add a GitHub token in Publishing Settings to make deletions permanent.');
+  }
 }
 </script>
 
